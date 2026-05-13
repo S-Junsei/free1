@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Traffic Commander</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>Traffic Commander</h1>
+      <p>信号を切り替えて渋滞と事故を防ぐ経営シミュレーション</p>
+    </header>
+
+    <section class="stats">
+      <div><span>日数</span><strong id="day">1</strong></div>
+      <div><span>資金</span><strong id="money">1000</strong></div>
+      <div><span>満足度</span><strong id="satisfaction">70</strong></div>
+      <div><span>渋滞</span><strong id="congestion">20</strong></div>
+    </section>
+
+    <section class="intersection-wrap">
+      <div class="road horizontal"></div>
+      <div class="road vertical"></div>
+      <button class="signal ns active" id="nsBtn">南北: 青</button>
+      <button class="signal ew" id="ewBtn">東西: 赤</button>
+    </section>
+
+    <section class="controls">
+      <button id="tickBtn">1日進める</button>
+      <button id="upgradeBtn">信号最適化に投資 (300)</button>
+      <button id="eventBtn">緊急対応 (150)</button>
+    </section>
+
+    <section class="log">
+      <h2>市民レポート</h2>
+      <ul id="logList"></ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,96 @@
+:root {
+  color-scheme: dark;
+  --bg: #111827;
+  --panel: #1f2937;
+  --accent: #22c55e;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+  --text: #e5e7eb;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: radial-gradient(circle at top, #1e293b, #0b1120 60%);
+  color: var(--text);
+}
+.app {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  padding: 1rem;
+}
+h1 { margin-bottom: .25rem; }
+header p { margin-top: 0; opacity: .8; }
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: .75rem;
+  margin: 1rem 0;
+}
+.stats div {
+  background: var(--panel);
+  padding: .75rem;
+  border-radius: 12px;
+}
+.stats span { display:block; font-size: .8rem; opacity:.8; }
+.stats strong { font-size: 1.4rem; }
+
+.intersection-wrap {
+  position: relative;
+  height: 240px;
+  background: #0f172a;
+  border-radius: 16px;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+.road { position: absolute; background: #374151; }
+.road.horizontal { top: 42%; left: 0; width: 100%; height: 16%; }
+.road.vertical { left: 42%; top: 0; width: 16%; height: 100%; }
+.signal {
+  position: absolute;
+  border: 0;
+  border-radius: 999px;
+  padding: .5rem .8rem;
+  color: #fff;
+  font-weight: 700;
+}
+.signal.ns { top: 8%; left: 50%; transform: translateX(-50%); background: var(--danger); }
+.signal.ew { bottom: 8%; left: 50%; transform: translateX(-50%); background: var(--danger); }
+.signal.active { background: var(--accent); }
+
+.controls {
+  display: grid;
+  gap: .6rem;
+}
+button {
+  padding: .85rem 1rem;
+  border-radius: 10px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  font-size: 1rem;
+}
+#upgradeBtn { background: #7c3aed; }
+#eventBtn { background: #ea580c; }
+
+.log {
+  background: var(--panel);
+  border-radius: 12px;
+  margin-top: 1rem;
+  padding: .75rem;
+}
+.log ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .4rem;
+  font-size: .95rem;
+}
+.log li { opacity: .95; }
+
+@media (min-width: 680px) {
+  .stats { grid-template-columns: repeat(4, 1fr); }
+}
