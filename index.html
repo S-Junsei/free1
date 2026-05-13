@@ -3,38 +3,59 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Traffic Commander</title>
+  <title>Traffic Commander: Nexus</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <main class="app">
-    <header>
-      <h1>Traffic Commander</h1>
-      <p>信号を切り替えて渋滞と事故を防ぐ経営シミュレーション</p>
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Urban Mobility Control</p>
+        <h1>Traffic Commander: Nexus</h1>
+        <p class="sub">信号だけでなく、交通需要まで制御して都市を回す戦略シミュレーション。</p>
+      </div>
+      <button id="resetBtn" class="ghost">リスタート</button>
     </header>
 
-    <section class="stats">
-      <div><span>日数</span><strong id="day">1</strong></div>
-      <div><span>資金</span><strong id="money">1000</strong></div>
-      <div><span>満足度</span><strong id="satisfaction">70</strong></div>
-      <div><span>渋滞</span><strong id="congestion">20</strong></div>
+    <section class="stats" aria-label="都市ステータス">
+      <article><span>日数</span><strong id="day">1</strong></article>
+      <article><span>予算</span><strong id="money">1200</strong></article>
+      <article><span>市民満足度</span><strong id="satisfaction">78</strong></article>
+      <article><span>渋滞指数</span><strong id="congestion">25</strong></article>
+      <article><span>事故リスク</span><strong id="risk">低</strong></article>
+      <article><span>制御モード</span><strong id="mode">手動</strong></article>
     </section>
 
-    <section class="intersection-wrap">
-      <div class="road horizontal"></div>
-      <div class="road vertical"></div>
-      <button class="signal ns active" id="nsBtn">南北: 青</button>
-      <button class="signal ew" id="ewBtn">東西: 赤</button>
+    <section class="board">
+      <div class="intersection-wrap" aria-label="交差点ビュー">
+        <div class="road horizontal"></div>
+        <div class="road vertical"></div>
+        <div class="cars north"></div><div class="cars south"></div>
+        <div class="cars east"></div><div class="cars west"></div>
+        <button class="signal ns active" id="nsBtn">南北: 青</button>
+        <button class="signal ew" id="ewBtn">東西: 赤</button>
+      </div>
+
+      <aside class="panel">
+        <h2>交通需要コントロール</h2>
+        <label>通勤需要 <input id="commute" type="range" min="0" max="100" value="55" /></label>
+        <label>商業需要 <input id="commerce" type="range" min="0" max="100" value="48" /></label>
+        <label>イベント密度 <input id="eventLoad" type="range" min="0" max="100" value="22" /></label>
+        <button id="autoBtn">AI自動制御をON</button>
+      </aside>
     </section>
 
     <section class="controls">
       <button id="tickBtn">1日進める</button>
-      <button id="upgradeBtn">信号最適化に投資 (300)</button>
-      <button id="eventBtn">緊急対応 (150)</button>
+      <button id="upgradeBtn">スマート信号へ投資 (300)</button>
+      <button id="eventBtn">緊急オペレーション (160)</button>
     </section>
 
     <section class="log">
-      <h2>市民レポート</h2>
+      <div class="log-head">
+        <h2>オペレーションログ</h2>
+        <small>最新12件</small>
+      </div>
       <ul id="logList"></ul>
     </section>
   </main>
