@@ -1,0 +1,63 @@
+name: Apply Urban Lab Copilot fixes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/fix-urban-sim-copilot.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch urban-sim/app.js
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("urban-sim/app.js")
+          text = path.read_text()
+
+          replacements = [
+              (
+                  "    for (let i = 0; i < INITIAL_POPULATION; i++) addResident();",
+                  "    for (let i = 0; i < INITIAL_POPULATION; i++) {\n      if (!addResident()) break;\n    }",
+              ),
+              (
+                  "      if (best < 0) best = jobs[Math.floor(Math.random() * jobs.length)];\n      p.work = best;\n      used.set(best, (used.get(best) || 0) + 1);",
+                  "      if (best < 0) {\n        const available = jobs.filter(candidate => (used.get(candidate) || 0) < cells[candidate].jobs);\n        if (!available.length) {\n          p.work = -1;\n          continue;\n        }\n        best = available.reduce((nearest, candidate) =>\n          manhattan(p.home, candidate) < manhattan(p.home, nearest) ? candidate : nearest\n        , available[0]);\n      }\n      p.work = best;\n      used.set(best, (used.get(best) || 0) + 1);",
+              ),
+              (
+                  "  function commuteDistance(home, work) {\n    return manhattan(home, work) * stationBenefit(home, work);\n  }",
+                  "  function commuteDistance(home, work) {\n    if (home < 0 || work < 0) return GRID * 2;\n    return manhattan(home, work) * stationBenefit(home, work);\n  }",
+              ),
+              (
+                  "  function reset() {\n    setPlaying(false);\n    buildInitialCity();\n    renderAll();\n  }",
+                  "  function reset() {\n    setPlaying(false);\n    buildInitialCity();\n    resizeCanvas();\n    renderAll();\n  }",
+              ),
+              (
+                  "  buildInitialCity();\n  renderAll();\n  requestAnimationFrame(resizeCanvas);",
+                  "  buildInitialCity();\n  requestAnimationFrame(() => {\n    resizeCanvas();\n    renderAll();\n  });",
+              ),
+          ]
+
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f"Expected source fragment not found:\n{old}")
+              text = text.replace(old, new, 1)
+
+          path.write_text(text)
+
+      - name: Remove one-shot workflow
+        run: rm .github/workflows/fix-urban-sim-copilot.yml
+      - name: Commit fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add urban-sim/app.js .github/workflows/fix-urban-sim-copilot.yml
+          git commit -m "fix: address Urban Lab review findings"
+          git push
