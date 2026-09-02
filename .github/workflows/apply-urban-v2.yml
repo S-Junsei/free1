@@ -22,7 +22,8 @@ jobs:
           from pathlib import Path
           import base64, io, zipfile, shutil
           root = Path('.')
-          payload = ''.join((root / '.urban-v2' / f'chunk{i}.b64').read_text() for i in range(5))
+          names = ['chunk00.b64','chunk01.b64','chunk02.b64','chunk03.b64','chunk1.b64','chunk2.b64','chunk3.b64','chunk4.b64']
+          payload = ''.join((root / '.urban-v2' / name).read_text() for name in names)
           data = base64.b64decode(payload)
           with zipfile.ZipFile(io.BytesIO(data)) as z:
               z.extractall(root / 'urban-sim')
