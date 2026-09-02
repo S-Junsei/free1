@@ -1,8 +1,10 @@
 name: Fix Urban V2 review
 on:
   push:
-    branches: [feature/urban-sim-v2]
-    paths: [.github/workflows/fix-urban-v2-review.yml]
+    branches:
+      - feature/urban-sim-v2
+    paths:
+      - .github/workflows/fix-urban-v2-review.yml
 permissions:
   contents: write
 jobs:
@@ -17,38 +19,14 @@ jobs:
         run: |
           from pathlib import Path
           p=Path('urban-sim/app.js'); s=p.read_text()
-          old="""    const affordability = clamp(70 - avg(cells.filter(c => c.kind === 'residential' && c.developed).map(c => c.rent || computeRent(cells.indexOf(c)))) * .5, -20, 30);"""
-          new="""    const residentialRents = [];
-    for (let i = 0; i < CELL_COUNT; i++) {
-      const c = cells[i];
-      if (c.kind === 'residential' && c.developed) residentialRents.push(c.rent || computeRent(i));
-    }
-    const affordability = clamp(70 - avg(residentialRents) * .5, -20, 30);"""
+          old="    const affordability = clamp(70 - avg(cells.filter(c => c.kind === 'residential' && c.developed).map(c => c.rent || computeRent(cells.indexOf(c)))) * .5, -20, 30);"
+          new="    const residentialRents = [];\n    for (let i = 0; i < CELL_COUNT; i++) {\n      const c = cells[i];\n      if (c.kind === 'residential' && c.developed) residentialRents.push(c.rent || computeRent(i));\n    }\n    const affordability = clamp(70 - avg(residentialRents) * .5, -20, 30);"
           assert old in s; s=s.replace(old,new,1)
-          old="""    if (selectedTool === 'bulldoze') {
-      const affected = households.filter(h => h.home === i).length;
-      households = households.filter(h => h.home !== i);
-      for (const h of households) if (h.work === i) h.work = -1;
-      if (budget < COSTS.bulldoze) return;
-      budget -= COSTS.bulldoze;
-      setCellKind(i, 'empty');
-      if (affected) addEvent(`${affected}世帯が再開発による立退きで市外へ転出しました。`, 'warn');"""
-          new="""    if (selectedTool === 'bulldoze') {
-      if (budget < COSTS.bulldoze) { addEvent('撤去費用が不足しています。', 'bad'); return; }
-      const affected = households.filter(h => h.home === i).length;
-      budget -= COSTS.bulldoze;
-      households = households.filter(h => h.home !== i);
-      for (const h of households) if (h.work === i) { h.work = -1; h.employedWorkers = 0; }
-      setCellKind(i, 'empty');
-      if (affected) addEvent(`${affected}世帯が再開発による立退きで市外へ転出しました。`, 'warn');"""
+          old="\n".join(["    if (selectedTool === 'bulldoze') {","      const affected = households.filter(h => h.home === i).length;","      households = households.filter(h => h.home !== i);","      for (const h of households) if (h.work === i) h.work = -1;","      if (budget < COSTS.bulldoze) return;","      budget -= COSTS.bulldoze;","      setCellKind(i, 'empty');","      if (affected) addEvent(`${affected}世帯が再開発による立退きで市外へ転出しました。`, 'warn');"])
+          new="\n".join(["    if (selectedTool === 'bulldoze') {","      if (budget < COSTS.bulldoze) { addEvent('撤去費用が不足しています。', 'bad'); return; }","      const affected = households.filter(h => h.home === i).length;","      budget -= COSTS.bulldoze;","      households = households.filter(h => h.home !== i);","      for (const h of households) if (h.work === i) { h.work = -1; h.employedWorkers = 0; }","      setCellKind(i, 'empty');","      if (affected) addEvent(`${affected}世帯が再開発による立退きで市外へ転出しました。`, 'warn');"])
           assert old in s; s=s.replace(old,new,1)
-          old="""    selectedIndex = i;
-    rebuildRoadNetwork();
-    computeEnvironmentalFields();
-    currentMetrics = computeMetrics(currentMetrics?.transitShare || 0);
-    updateUI();"""
-          new="""    selectedIndex = i;
-    runEconomyPass(true);"""
+          old="\n".join(["    selectedIndex = i;","    rebuildRoadNetwork();","    computeEnvironmentalFields();","    currentMetrics = computeMetrics(currentMetrics?.transitShare || 0);","    updateUI();"])
+          new="\n".join(["    selectedIndex = i;","    runEconomyPass(true);"])
           assert old in s; s=s.replace(old,new,1)
           p.write_text(s)
       - name: Syntax and invariant checks
@@ -62,11 +40,11 @@ jobs:
           cat > /tmp/smoke.cjs <<'NODE'
           const fs=require('fs'),vm=require('vm');
           let seed=123456789; Math.random=()=>((seed=(1664525*seed+1013904223)>>>0)/4294967296);
-          const ctx=new Proxy({}, {get:(t,p)=>p==='measureText'?(()=>({width:0})):(()=>{}),set:(t,p,v)=>true});
+          const ctx=new Proxy({}, {get:(t,p)=>p==='measureText'?(()=>({width:0})):(()=>{}),set:()=>true});
           class E{constructor(id){this.id=id;this.value=id==='incomeTax'?'9':id==='propertyTax'?'1.2':id==='speedRange'?'1':'0';this.checked=false;this.style={};this.classList={toggle(){}};this.hidden=false;this.textContent='';this.innerHTML='';this.width=1000;this.height=650;}getContext(){return ctx}getBoundingClientRect(){return {width:this.id==='historyCanvas'?600:1000,height:this.id==='historyCanvas'?160:650,left:0,top:0}}addEventListener(){}querySelectorAll(){return []}closest(){return null}setPointerCapture(){}}
           const els=new Map(); const document={getElementById:id=>els.get(id)||els.set(id,new E(id)).get(id)};
           const store=new Map(); const localStorage={setItem:(k,v)=>store.set(k,v),getItem:k=>store.get(k)||null};
-          const sandbox={console,Math,document,localStorage,setInterval:()=>1,clearInterval(){},requestAnimationFrame:f=>f(),ResizeObserver:class{constructor(f){}observe(){}},window:{devicePixelRatio:1,addEventListener(){}}}; sandbox.globalThis=sandbox;
+          const sandbox={console,Math,document,localStorage,setInterval:()=>1,clearInterval(){},requestAnimationFrame:f=>f(),ResizeObserver:class{observe(){}},window:{devicePixelRatio:1,addEventListener(){}}}; sandbox.globalThis=sandbox;
           let src=fs.readFileSync('urban-sim/app.js','utf8');
           src=src.replace(/\}\)\(\);\s*$/,`globalThis.__t={simulateMonth,get metrics(){return {...currentMetrics}},get budget(){return budget},get households(){return households.length}};})();`);
           vm.createContext(sandbox); vm.runInContext(src,sandbox,{filename:'app.js'});
