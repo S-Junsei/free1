@@ -1,0 +1,42 @@
+name: Apply Urban Lab V2
+
+on:
+  push:
+    branches: [feature/urban-sim-v2]
+    paths:
+      - .github/workflows/apply-urban-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/urban-sim-v2
+      - name: Rebuild Urban Lab V2 files
+        shell: python
+        run: |
+          from pathlib import Path
+          import base64, io, zipfile, shutil
+          root = Path('.')
+          payload = ''.join((root / '.urban-v2' / f'chunk{i}.b64').read_text() for i in range(5))
+          data = base64.b64decode(payload)
+          with zipfile.ZipFile(io.BytesIO(data)) as z:
+              z.extractall(root / 'urban-sim')
+          shutil.rmtree(root / '.urban-v2')
+          for p in [root/'urban-sim/ARCHITECTURE_V2.md', root/'urban-sim/V2_PLAN.md', root/'urban-sim/v2-placeholder.txt']:
+              if p.exists(): p.unlink()
+          wf = root / '.github/workflows/apply-urban-v2.yml'
+          if wf.exists(): wf.unlink()
+      - name: Validate JavaScript
+        run: node --check urban-sim/app.js
+      - name: Commit V2
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: rebuild Urban Lab as causal city simulator"
+          git push origin HEAD:feature/urban-sim-v2
