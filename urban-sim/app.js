@@ -176,8 +176,8 @@
 
     setCellKind(idx(13, 13), 'park');
     setCellKind(idx(13, 22), 'park');
-    setCellKind(idx(21, 13), 'school');
-    setCellKind(idx(22, 22), 'hospital');
+    setCellKind(idx(12, 12), 'school');
+    setCellKind(idx(12, 21), 'hospital');
     setCellKind(idx(18, 18), 'station');
   }
 
@@ -210,7 +210,7 @@
     const workers = size === 1 ? (Math.random() < .78 ? 1 : 0) : Math.min(2, Math.max(1, Math.round(size * rand(.35, .55))));
     const education = Math.random() < .28 ? 2 : Math.random() < .62 ? 1 : 0;
     const baseIncome = education === 2 ? rand(105, 175) : education === 1 ? rand(75, 125) : rand(48, 88);
-    return { home, size, workers, education, income: baseIncome, work: -1, satisfaction: 60, commute: 0, transit: false, employedWorkers: 0 };
+    return { home, size, workers, education, income: baseIncome, work: -1, satisfaction: 60, commute: 0, transit: false, employedWorkers: 0, stress: 0 };
   }
 
   function neighbors4(i) {
@@ -272,8 +272,17 @@
     const cached = roadAccessCache[i];
     if (cached !== -2) return cached;
     if (cells[i].kind === 'road') return (roadAccessCache[i] = i);
-    const direct = neighbors4(i).find(n => cells[n].kind === 'road');
-    return (roadAccessCache[i] = direct === undefined ? -1 : direct);
+    const p = xy(i);
+    let best = -1, bestDistance = Infinity;
+    for (let y = Math.max(0, p.y - 4); y <= Math.min(GRID - 1, p.y + 4); y++) {
+      for (let x = Math.max(0, p.x - 4); x <= Math.min(GRID - 1, p.x + 4); x++) {
+        const distance = Math.abs(x - p.x) + Math.abs(y - p.y);
+        if (distance === 0 || distance > 4) continue;
+        const candidate = idx(x, y);
+        if (cells[candidate].kind === 'road' && distance < bestDistance) { best = candidate; bestDistance = distance; }
+      }
+    }
+    return (roadAccessCache[i] = best);
   }
 
   function sameRoadComponent(a, b) {
@@ -427,7 +436,7 @@
       const tax = grossIncome * (Number(els.incomeTax.value) / 100);
       let rent = home.rent || computeRent(h.home);
       if (els.policyAffordable.checked) rent *= .82;
-      const rentBurden = grossIncome > 0 ? rent / grossIncome : 1;
+      const rentBurden = grossIncome > 0 ? rent / (grossIncome * 2.1) : 1;
       const school = hasNearbyFacility(h.home, 'school', 6) ? 1 : 0;
       const health = hasNearbyFacility(h.home, 'hospital', 7) ? 1 : 0;
       const park = hasNearbyFacility(h.home, 'park', 4) ? 1 : 0;
@@ -439,7 +448,9 @@
         0, 100
       );
       home.happiness += (h.satisfaction - home.happiness) * .28;
-      if (allowLeave && ((h.satisfaction < 31 && Math.random() < .09) || (grossIncome <= 0 && Math.random() < .045))) h._leave = true;
+      const stressDelta = h.satisfaction < 35 ? 1 : h.satisfaction > 52 ? -1 : -.25;
+      h.stress = clamp((h.stress || 0) + stressDelta, 0, 12);
+      if (allowLeave && ((h.stress >= 4 && Math.random() < .14) || (grossIncome <= 0 && h.stress >= 3 && Math.random() < .08))) h._leave = true;
       else h._leave = false;
       if (h._leave) leavers++;
       h.netIncome = Math.max(0, grossIncome - tax - rent);
@@ -491,7 +502,12 @@
   function computeDemand(metrics) {
     const taxDrag = (Number(els.incomeTax.value) - 8) * 2.1 + (Number(els.propertyTax.value) - 1.2) * 5;
     const employmentGap = clamp((metrics.vacantJobs - Math.max(0, metrics.workers - metrics.employed)) / 8, -25, 25);
-    const affordability = clamp(70 - avg(cells.filter(c => c.kind === 'residential' && c.developed).map(c => c.rent || computeRent(cells.indexOf(c)))) * .5, -20, 30);
+    const residentialRents = [];
+    for (let i = 0; i < CELL_COUNT; i++) {
+      const c = cells[i];
+      if (c.kind === 'residential' && c.developed) residentialRents.push(c.rent || computeRent(i));
+    }
+    const affordability = clamp(70 - avg(residentialRents) * .5, -20, 30);
     const educatedShare = households.length ? households.filter(h => h.education >= 1).length / households.length : .4;
     demands.residential = clamp(48 + employmentGap + (metrics.happiness - 55) * .65 + affordability * .35 - taxDrag + (els.policyAffordable.checked ? 7 : 0), 0, 100);
     demands.commercial = clamp(38 + metrics.population / 45 + metrics.happiness * .22 - metrics.vacantJobs * .05 - taxDrag * .7, 0, 100);
@@ -676,11 +692,11 @@
     const c = cells[i];
     if (!canReplace(selectedTool, c.kind)) return;
     if (selectedTool === 'bulldoze') {
+      if (budget < COSTS.bulldoze) { addEvent('撤去費用が不足しています。', 'bad'); return; }
       const affected = households.filter(h => h.home === i).length;
-      households = households.filter(h => h.home !== i);
-      for (const h of households) if (h.work === i) h.work = -1;
-      if (budget < COSTS.bulldoze) return;
       budget -= COSTS.bulldoze;
+      households = households.filter(h => h.home !== i);
+      for (const h of households) if (h.work === i) { h.work = -1; h.employedWorkers = 0; }
       setCellKind(i, 'empty');
       if (affected) addEvent(`${affected}世帯が再開発による立退きで市外へ転出しました。`, 'warn');
     } else {
@@ -695,10 +711,7 @@
       if (displaced) addEvent(`${displaced}世帯が再開発で転出しました。`, 'warn');
     }
     selectedIndex = i;
-    rebuildRoadNetwork();
-    computeEnvironmentalFields();
-    currentMetrics = computeMetrics(currentMetrics?.transitShare || 0);
-    updateUI();
+    runEconomyPass(true);
   }
 
   function pointerToCell(event) {
