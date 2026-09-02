@@ -99,7 +99,9 @@
     });
 
     people = [];
-    for (let i = 0; i < INITIAL_POPULATION; i++) addResident();
+    for (let i = 0; i < INITIAL_POPULATION; i++) {
+      if (!addResident()) break;
+    }
     assignAllWorkplaces();
     recalculateCellStats();
     year = 0;
@@ -153,7 +155,16 @@
         const d = manhattan(p.home, candidate) + Math.random() * 4;
         if (d < bestDistance) { bestDistance = d; best = candidate; }
       }
-      if (best < 0) best = jobs[Math.floor(Math.random() * jobs.length)];
+      if (best < 0) {
+        const available = jobs.filter(candidate => (used.get(candidate) || 0) < cells[candidate].jobs);
+        if (!available.length) {
+          p.work = -1;
+          continue;
+        }
+        best = available.reduce((nearest, candidate) =>
+          manhattan(p.home, candidate) < manhattan(p.home, nearest) ? candidate : nearest
+        , available[0]);
+      }
       p.work = best;
       used.set(best, (used.get(best) || 0) + 1);
     }
@@ -179,6 +190,7 @@
   }
 
   function commuteDistance(home, work) {
+    if (home < 0 || work < 0) return GRID * 2;
     return manhattan(home, work) * stationBenefit(home, work);
   }
 
@@ -485,6 +497,7 @@
   function reset() {
     setPlaying(false);
     buildInitialCity();
+    resizeCanvas();
     renderAll();
   }
 
@@ -525,6 +538,8 @@
   }
 
   buildInitialCity();
-  renderAll();
-  requestAnimationFrame(resizeCanvas);
+  requestAnimationFrame(() => {
+    resizeCanvas();
+    renderAll();
+  });
 })();
