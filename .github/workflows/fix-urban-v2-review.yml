@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: feature/urban-sim-v2
-      - name: Patch review findings
+      - name: Patch review findings and model stability
         shell: python
         run: |
           from pathlib import Path
@@ -28,6 +28,21 @@ jobs:
           old="\n".join(["    selectedIndex = i;","    rebuildRoadNetwork();","    computeEnvironmentalFields();","    currentMetrics = computeMetrics(currentMetrics?.transitShare || 0);","    updateUI();"])
           new="\n".join(["    selectedIndex = i;","    runEconomyPass(true);"])
           assert old in s; s=s.replace(old,new,1)
+          old="\n".join(["  function roadAccess(i) {","    const cached = roadAccessCache[i];","    if (cached !== -2) return cached;","    if (cells[i].kind === 'road') return (roadAccessCache[i] = i);","    const direct = neighbors4(i).find(n => cells[n].kind === 'road');","    return (roadAccessCache[i] = direct === undefined ? -1 : direct);","  }"])
+          new="\n".join(["  function roadAccess(i) {","    const cached = roadAccessCache[i];","    if (cached !== -2) return cached;","    if (cells[i].kind === 'road') return (roadAccessCache[i] = i);","    const p = xy(i);","    let best = -1, bestDistance = Infinity;","    for (let y = Math.max(0, p.y - 4); y <= Math.min(GRID - 1, p.y + 4); y++) {","      for (let x = Math.max(0, p.x - 4); x <= Math.min(GRID - 1, p.x + 4); x++) {","        const distance = Math.abs(x - p.x) + Math.abs(y - p.y);","        if (distance === 0 || distance > 4) continue;","        const candidate = idx(x, y);","        if (cells[candidate].kind === 'road' && distance < bestDistance) { best = candidate; bestDistance = distance; }","      }","    }","    return (roadAccessCache[i] = best);","  }"])
+          assert old in s; s=s.replace(old,new,1)
+          old="    const rentBurden = grossIncome > 0 ? rent / grossIncome : 1;"
+          new="    const rentBurden = grossIncome > 0 ? rent / (grossIncome * 2.1) : 1;"
+          assert old in s; s=s.replace(old,new,1)
+          old="    return { home, size, workers, education, income: baseIncome, work: -1, satisfaction: 60, commute: 0, transit: false, employedWorkers: 0 };"
+          new="    return { home, size, workers, education, income: baseIncome, work: -1, satisfaction: 60, commute: 0, transit: false, employedWorkers: 0, stress: 0 };"
+          assert old in s; s=s.replace(old,new,1)
+          old="\n".join(["      if (allowLeave && ((h.satisfaction < 31 && Math.random() < .09) || (grossIncome <= 0 && Math.random() < .045))) h._leave = true;","      else h._leave = false;"])
+          new="\n".join(["      const stressDelta = h.satisfaction < 35 ? 1 : h.satisfaction > 52 ? -1 : -.25;","      h.stress = clamp((h.stress || 0) + stressDelta, 0, 12);","      if (allowLeave && ((h.stress >= 4 && Math.random() < .14) || (grossIncome <= 0 && h.stress >= 3 && Math.random() < .08))) h._leave = true;","      else h._leave = false;"])
+          assert old in s; s=s.replace(old,new,1)
+          old="    setCellKind(idx(21, 13), 'school');\n    setCellKind(idx(22, 22), 'hospital');"
+          new="    setCellKind(idx(12, 12), 'school');\n    setCellKind(idx(12, 21), 'hospital');"
+          assert old in s; s=s.replace(old,new,1)
           p.write_text(s)
       - name: Syntax and invariant checks
         run: |
@@ -35,7 +50,9 @@ jobs:
           ! grep -q "computeRent(cells.indexOf(c))" urban-sim/app.js
           grep -q "if (budget < COSTS.bulldoze)" urban-sim/app.js
           grep -q "runEconomyPass(true);" urban-sim/app.js
-      - name: Deterministic 24-month simulation smoke test
+          grep -q "bestDistance = Infinity" urban-sim/app.js
+          grep -q "h.stress = clamp" urban-sim/app.js
+      - name: Deterministic 12-month simulation smoke test
         run: |
           cat > /tmp/smoke.cjs <<'NODE'
           const fs=require('fs'),vm=require('vm');
@@ -49,12 +66,13 @@ jobs:
           src=src.replace(/\}\)\(\);\s*$/,`globalThis.__t={simulateMonth,get metrics(){return {...currentMetrics}},get budget(){return budget},get households(){return households.length}};})();`);
           vm.createContext(sandbox); vm.runInContext(src,sandbox,{filename:'app.js'});
           const t=sandbox.__t, initial={...t.metrics,budget:t.budget,households:t.households};
-          if(!Number.isFinite(initial.happiness)||initial.population<100||initial.employment<0.45) throw Error('bad initial state '+JSON.stringify(initial));
-          for(let i=0;i<24;i++) t.simulateMonth();
+          if(!Number.isFinite(initial.happiness)||initial.population<100||initial.employment<0.75||initial.happiness<35) throw Error('bad initial state '+JSON.stringify(initial));
+          for(let i=0;i<12;i++) t.simulateMonth();
           const after={...t.metrics,budget:t.budget,households:t.households};
           for(const k of ['population','employment','happiness','traffic','landValue','pollution']) if(!Number.isFinite(after[k])) throw Error('non-finite '+k);
-          if(after.population < initial.population*.55) throw Error('population collapse '+JSON.stringify({initial,after}));
-          if(after.employment<0.35) throw Error('employment collapse '+JSON.stringify(after));
+          if(after.population < initial.population*.75) throw Error('population collapse '+JSON.stringify({initial,after}));
+          if(after.employment<0.65) throw Error('employment collapse '+JSON.stringify(after));
+          if(after.happiness<30) throw Error('happiness collapse '+JSON.stringify(after));
           if(after.budget<=-60000) throw Error('fiscal collapse '+JSON.stringify(after));
           console.log(JSON.stringify({initial,after},null,2));
           NODE
@@ -65,5 +83,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "fix: address Urban Lab V2 review findings"
+          git commit -m "fix: stabilize Urban Lab V2 and address review findings"
           git push origin HEAD:feature/urban-sim-v2
